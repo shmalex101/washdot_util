@@ -64,8 +64,9 @@ def weighting(Lo,F,low = 0):
     Lw = Lo+Aw[np.in1d(C.ravel(), F).reshape(C.shape)]
     return Lw
     
-            
-
+def rms_calc(dat):
+    rms = np.sqrt(np.mean(dat**2))
+    return rms            
 
 if __name__ == "__main__":
     Lt,Ct,Ut = third_octave()
