@@ -12,6 +12,7 @@ import numpy as np
 from scipy.fftpack import fft, ifft
 from scipy import signal
 import soundfile as sf
+import sys
 
 #third octave bands from "Noise and Vibration Control Engineering" 2nd ed.,
 #Ver and Beranek, (2005) p.9 Table 1.1
@@ -77,11 +78,13 @@ def weighting(Lo,F,low = 0):
     Lw = Lo+Aw[np.in1d(C.ravel(), F).reshape(C.shape)]
     return Lw
 
+
 def rms_calc(dat):
+    #compute rms value
     rms = np.sqrt(np.mean(dat**2))
     return rms
     
-def calibration_correction(calfile,Lrms = 94.,Pref = 20.):
+def calibration_correction(calfile,Lrms = 94.,Pref = 20.,tlim = False):
     #correction to convert from .wav file (normalized to -1/+1) to units of
     #pressure. Lrms is the calibration level and Pref is the reference 
     #pressure
@@ -89,29 +92,36 @@ def calibration_correction(calfile,Lrms = 94.,Pref = 20.):
     tcal = np.arange(0,np.size(cal))/fs # time vector
     Prms = Pref*10.**(Lrms/20.) #rms pressure for calibrator
     #plot the calibration file to select the range of interest
-    fig, ax = plt.subplots(figsize=(5, 3),dpi=200)
-    ax.grid(alpha = 1.0,color = 'k',linewidth = '0.25')
-    ax.plot(tcal, cal,linewidth = '0.25')
-    ax.set_ylabel('Amplitude')
-    ax.set_xlabel('Time (s)')
-    ax.set_xlim(tcal[0],tcal[-1])
-    fig.tight_layout()
-
-    print("Select the start then end time used to calculate the correction:")
-    tlim = fig.ginput(2,show_clicks=True,mouse_add = 1)
-    
-    if tlim[0][0]>tlim[-1][0]:
-        print("start time must be less than end time, try again")
-        tlim = fig.ginput(2,show_clicks=True,mouse_add = 1)
-    try:
+    if tlim == False:
+        fig, ax = plt.subplots(figsize=(5, 3),dpi=200)
+        ax.grid(alpha = 1.0,color = 'k',linewidth = '0.25')
+        ax.plot(tcal, cal,linewidth = '0.25')
+        ax.set_ylabel('Amplitude')
+        ax.set_xlabel('Time (s)')
+        ax.set_xlim(tcal[0],tcal[-1])
+        fig.tight_layout()
+        print("Select the start then end time used to calculate the correction:")
+        tlim = fig.ginput(2,show_clicks=True,mouse_add = 1)   
+        if tlim[0][0]>tlim[-1][0]:
+            print("start time must be less than end time, try again")
+            tlim = fig.ginput(2,show_clicks=True,mouse_add = 1)
         Srms = rms_calc(cal[np.logical_and(tcal>=tlim[0][0],tcal<=tlim[-1][0])])
-    except KeyError:
-        print ('try again doofus' )
-        tlim = fig.ginput(2,show_clicks=True,mouse_add = 1)
-    plt.close()
-    Srms = rms_calc(cal[tcal<=5.])
+        plt.close()
+    else:
+        Srms = rms_calc(cal[np.logical_and(tcal>=tlim[0],tcal<=tlim[1])])
     RVS = Prms/Srms #conversion from normalied units to muPa (so that P = S*Prms/Srms)
-    return RVS,[tlim[0][0],tlim[-1][0]]
+    return RVS,tlim
+
+def third_octave_calc(Pf2,f,weight=False,Pref=20.):
+    L,C,U = third_octave()
+    Pthird =[]
+    for (isum,fsum) in enumerate(C):
+        Pthird.append(np.sum(Pf2[np.logical_and(f>=L[isum],f<=U[isum])])/(U[isum]-L[isum]))
+    Lthird = 10.*np.log10(np.array(Pthird)/Pref**2.)
+    if weight is True:
+        Aw, _ = Aweight()
+        Lthird = Lthird+Aw
+    return Lthird, C
 
 if __name__ == "__main__":
     Lt,Ct,Ut = third_octave()
