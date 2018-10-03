@@ -109,7 +109,7 @@ def calibration_correction(calfile,Lrms = 94.,Pref = 20.,tlim = False):
         plt.close()
     else:
         Srms = rms_calc(cal[np.logical_and(tcal>=tlim[0],tcal<=tlim[1])])
-    RVS = Prms/Srms #conversion from normalied units to muPa (so that P = S*Prms/Srms)
+    RVS = Prms/Srms #conversion from normalized units to muPa (so that P = S*Prms/Srms)
     return RVS,tlim
 
 def third_octave_calc(Pf2,f,weight=False,Pref=20.):
@@ -122,6 +122,27 @@ def third_octave_calc(Pf2,f,weight=False,Pref=20.):
         Aw, _ = Aweight()
         Lthird = Lthird+Aw
     return Lthird, C
+
+def zoom_rename(mainDIR):
+    #function to rename files created by the ZOOM recorder so that the .WAV
+    #files that normally start with "ZOOM" are renamed according to the name
+    #of the .hprj file (typically the date and time the file was created)
+    
+    #add '/' to end of directory name if not already there
+    if mainDIR[-1]!='/':
+        mainDIR = mainDIR+'/'
+    #return list of directories in main directory
+    zoomDIR = []
+    for xx in os.listdir(mainDIR):
+        if os.path.isdir(mainDIR+'/'+xx)==True:
+            zoomDIR.append(xx)
+    #foor each ZOOM directory in a folder, rename the .WAV file with the .hprj    
+    for subDIR in zoomDIR:
+        for file in os.listdir(mainDIR+subDIR):
+            if file.endswith(".wav") or file.endswith(".WAV"):
+                os.rename(mainDIR+subDIR+'/'+file, \
+                    glob.glob(mainDIR+subDIR+'/'+'*.hprj')[0][0:-5] \
+                    .replace('-','_')+'.WAV')
 
 if __name__ == "__main__":
     Lt,Ct,Ut = third_octave()
