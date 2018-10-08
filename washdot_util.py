@@ -123,26 +123,23 @@ def third_octave_calc(Pf2,f,weight=False,Pref=20.):
         Lthird = Lthird+Aw
     return Lthird, C
 
-def zoom_rename(mainDIR):
-    #function to rename files created by the ZOOM recorder so that the .WAV
-    #files that normally start with "ZOOM" are renamed according to the name
-    #of the .hprj file (typically the date and time the file was created)
-    
+def zoom_rename(rootDIR):
     #add '/' to end of directory name if not already there
-    if mainDIR[-1]!='/':
-        mainDIR = mainDIR+'/'
+    if rootDIR[-1]!='/':
+        rootDIR = rootDIR+'/'
     #return list of directories in main directory
     zoomDIR = []
-    for xx in os.listdir(mainDIR):
-        if os.path.isdir(mainDIR+'/'+xx)==True:
+    for xx in os.listdir(rootDIR):
+        if os.path.isdir(rootDIR+'/'+xx)==True:
             zoomDIR.append(xx)
-    #foor each ZOOM directory in a folder, rename the .WAV file with the .hprj    
+    #for each ZOOM directory in a folder, copy and rename the .WAV file with 
+    #the .hprj filename (date+time) then move to root directory   
     for subDIR in zoomDIR:
-        for file in os.listdir(mainDIR+subDIR):
+        for file in os.listdir(rootDIR+subDIR):
             if file.endswith(".wav") or file.endswith(".WAV"):
-                os.rename(mainDIR+subDIR+'/'+file, \
-                    glob.glob(mainDIR+subDIR+'/'+'*.hprj')[0][0:-5] \
+                newfile = os.path.basename(glob.glob(rootDIR+subDIR+'/'+'*.hprj')[0][0:-5] \
                     .replace('-','_')+'.WAV')
+                shutil.copy(rootDIR+subDIR+'/'+file,rootDIR+'/'+newfile)
 
 if __name__ == "__main__":
     Lt,Ct,Ut = third_octave()
