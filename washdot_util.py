@@ -13,6 +13,9 @@ from scipy.fftpack import fft, ifft
 from scipy import signal
 import soundfile as sf
 import sys
+import os
+import glob
+import shutil
 
 #third octave bands from "Noise and Vibration Control Engineering" 2nd ed.,
 #Ver and Beranek, (2005) p.9 Table 1.1
@@ -108,7 +111,8 @@ def calibration_correction(calfile,Lrms = 94.,Pref = 20.,tlim = False):
         Srms = rms_calc(cal[np.logical_and(tcal>=tlim[0][0],tcal<=tlim[-1][0])])
         plt.close()
     else:
-        Srms = rms_calc(cal[np.logical_and(tcal>=tlim[0],tcal<=tlim[1])])
+        #Srms = rms_calc(cal[np.logical_and(tcal>=tlim[0],tcal<=tlim[1])])
+        Srms = rms_calc(cal[tuple(tlim)])
     RVS = Prms/Srms #conversion from normalized units to muPa (so that P = S*Prms/Srms)
     return RVS,tlim
 
