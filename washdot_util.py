@@ -86,7 +86,18 @@ def rms_calc(dat):
     #compute rms value
     rms = np.sqrt(np.mean(dat**2))
     return rms
-    
+
+def third_octave_calc(Pf2,f,weight=False,Pref=20.):
+    L,C,U = third_octave()
+    Pthird =[]
+    for (isum,fsum) in enumerate(C):
+        Pthird.append(np.sum(Pf2[np.logical_and(f>=L[isum],f<=U[isum])])/(U[isum]-L[isum]))
+    Lthird = 10.*np.log10(np.array(Pthird)/Pref**2.)
+    if weight is True:
+        Aw, _ = Aweight()
+        Lthird = Lthird+Aw
+    return Lthird, C
+
 def calibration_correction(calfile,Lrms = 94.,Pref = 20.,tlim = False):
     #correction to convert from .wav file (normalized to -1/+1) to units of
     #pressure. Lrms is the calibration level and Pref is the reference 
@@ -116,16 +127,11 @@ def calibration_correction(calfile,Lrms = 94.,Pref = 20.,tlim = False):
     RVS = Prms/Srms #conversion from normalized units to muPa (so that P = S*Prms/Srms)
     return RVS,tlim
 
-def third_octave_calc(Pf2,f,weight=False,Pref=20.):
-    L,C,U = third_octave()
-    Pthird =[]
-    for (isum,fsum) in enumerate(C):
-        Pthird.append(np.sum(Pf2[np.logical_and(f>=L[isum],f<=U[isum])])/(U[isum]-L[isum]))
-    Lthird = 10.*np.log10(np.array(Pthird)/Pref**2.)
-    if weight is True:
-        Aw, _ = Aweight()
-        Lthird = Lthird+Aw
-    return Lthird, C
+def datload(FILENAME):
+    data, fs = sf.read(FILENAME) # load data
+    t = np.arange(0,np.size(data))/fs # time vector
+    data = data - np.mean(data)
+    return data,t,fs
 
 def zoom_rename(rootDIR):
     #add '/' to end of directory name if not already there
@@ -144,6 +150,9 @@ def zoom_rename(rootDIR):
                 newfile = os.path.basename(glob.glob(rootDIR+subDIR+'/'+'*.hprj')[0][0:-5] \
                     .replace('-','_')+'.WAV')
                 shutil.copy(rootDIR+subDIR+'/'+file,rootDIR+'/'+newfile)
+                
+
+
 
 if __name__ == "__main__":
     Lt,Ct,Ut = third_octave()
