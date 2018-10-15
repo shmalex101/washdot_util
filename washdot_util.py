@@ -16,6 +16,7 @@ import sys
 import os
 import glob
 import shutil
+import pandas as pd
 
 #third octave bands from "Noise and Vibration Control Engineering" 2nd ed.,
 #Ver and Beranek, (2005) p.9 Table 1.1
@@ -104,6 +105,9 @@ def calibration_correction(calfile,Lrms = 94.,Pref = 20.,tlim = False):
     #pressure
     cal, fs = sf.read(calfile) # load data
     tcal = np.arange(0,np.size(cal))/fs # time vector
+    Wn = np.array([900.,1100.])/(fs/2.)
+    b, a = signal.butter(2,Wn,btype='bandpass')
+    cal = signal.filtfilt(b,a,cal)
     Prms = Pref*10.**(Lrms/20.) #rms pressure for calibrator
     #plot the calibration file to select the range of interest
     if tlim == False:
@@ -123,7 +127,9 @@ def calibration_correction(calfile,Lrms = 94.,Pref = 20.,tlim = False):
         plt.close()
     else:
         #Srms = rms_calc(cal[np.logical_and(tcal>=tlim[0],tcal<=tlim[1])])
-        Srms = rms_calc(cal[tuple(tlim)])
+        caldex = [np.logical_and(tcal>=tlim[0],tcal<=tlim[1])]
+
+        Srms = rms_calc(cal[tuple(caldex)])
     RVS = Prms/Srms #conversion from normalized units to muPa (so that P = S*Prms/Srms)
     return RVS,tlim
 
@@ -151,7 +157,14 @@ def zoom_rename(rootDIR):
                     .replace('-','_')+'.WAV')
                 shutil.copy(rootDIR+subDIR+'/'+file,rootDIR+'/'+newfile)
                 
-
+def bk2270_rename(ROOTDIR,SAVEDIR):
+    if ROOTDIR[-1]!='/':
+        ROOTDIR = ROOTDIR+'/'
+    for file in os.listdir(ROOTDIR):
+        if file.endswith(".wav") or file.endswith(".WAV"):
+            newfile = pd.to_datetime(os.path.getmtime(ROOTDIR+file),unit='s'). \
+                tz_localize('UTC').tz_convert('US/Pacific').strftime('%Y_%m_%d_%H_%M_%S')
+            shutil.copy(ROOTDIR+file,SAVEDIR+'/'+newfile+'.wav')
 
 
 if __name__ == "__main__":
