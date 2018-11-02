@@ -82,10 +82,12 @@ def weighting(Lo,F,low = 0):
     Lw = Lo+Aw[np.in1d(C.ravel(), F).reshape(C.shape)]
     return Lw
 
-
-def rms_calc(dat):
+def rms_calc(dat,unit='flat',Pref=20.):
     #compute rms value
-    rms = np.sqrt(np.mean(dat**2))
+    if unit=='dB':
+        rms = 20*np.log10(np.sqrt(np.mean(dat**2))/Pref)
+    else:
+        rms = np.sqrt(np.mean(dat**2))   
     return rms
 
 def third_octave_calc(Pf2,f,weight=False,Pref=20.):
