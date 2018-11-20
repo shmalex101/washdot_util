@@ -101,6 +101,26 @@ def Aweight_interp(f):
     Awinterp = np.interp(f,C,Aw)
     return Awinterp
 
+#Aweight_broadband() is the equation version of the Aweighting functions
+# Instead of interpolation. Source is "Handbook of Noise and Vibration" 
+# Crocker (2008),John Wiley & Sons, Inc, pp.459 Eq.(1) and Eq.(2)
+def Aweight_broadband(f,weight='A'):
+    f1 = 20.60
+    f2 = 107.7
+    f3 = 737.9
+    f4 = 12194.0
+    WA1000 = -2.00
+    WC1000 = -0.062
+    if weight=='A':
+        Aw = 20.*np.log10((f4**2*f**4)/((f**2+f1**2)*np.sqrt(f**2+f2**2) \
+                            *np.sqrt(f**2+f3**2)*(f**2+f4**2)))-WA1000
+    elif weight=='C':
+        Aw = Aw = 20.*np.log10((f4**2*f**4)/ \
+                               ((f**2+f1**2)*np.sqrt(f**2+f4**2))) - WC10000
+    else:
+        Aw = np.zeros(np.size(f))
+    return Aw
+
 def Cweight_interp(f):
     Cw,C = Cweight()
     Cwinterp = np.interp(f,C,Cw)
