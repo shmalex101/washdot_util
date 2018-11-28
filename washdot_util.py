@@ -7,8 +7,7 @@ DESCRIPTION: utility file containing functions to analyze data collected
 during the SR 520 bridge project with WASHDOT.
 """
 import numpy as np
-import matplotlib.pyplot as plt
-import numpy as np
+#import matplotlib.pyplot as plt
 from scipy.fftpack import fft, ifft
 from scipy import signal
 import soundfile as sf
@@ -185,10 +184,14 @@ def calibration_correction(calfile,Lrms = 94.,Pref = 20.,tlim = False):
     RVS = Prms/Srms #conversion from normalized units to muPa (so that P = S*Prms/Srms)
     return RVS,tlim
 
-def calibration_correction2(CALFILE,tlim,Lrms = 94.,Pref = 20.):
+def calibration_correction2(CALFILE,tlim=[0,40],Lrms = 94.,Pref = 20.):
     #correction to convert from .wav file (normalized to -1/+1) to units of
     #pressure. Lrms is the calibration level and Pref is the reference 
-    #pressure
+    #pressure.
+    #
+    #CALFILE is a 2X1 list where CALFILE includes the full pathname for 
+    #each calibration file. This is different than the calibration_correction()
+    #function where datadir is input
     dex=0
     RVS = np.zeros([2])
     for cf in CALFILE:
@@ -238,7 +241,60 @@ def bk2270_rename(ROOTDIR,SAVEDIR):
                 tz_localize('UTC').tz_convert('US/Pacific').strftime('%Y_%m_%d_%H_%M_%S')
             shutil.copy(ROOTDIR+file,SAVEDIR+'/'+newfile+'.wav')
 
+#function to return directory names for processing data (standard folder format
+#is used with wsdot 520 data with the following folders; processed, fig, label)
+def fdir(rdir=None):
+    if rdir==None:
+        rootdir = os.path.realpath('..')
+        figdir = os.path.realpath('../fig')
+        datadir = os.path.realpath('../processed')
+        labeldir = os.path.realpath('../label')
+    else:
+        rootdir = rdir
+        figdir = rdir+'/fig'
+        datadir = rdir+'/processed'
+        labeldir = rdir+'/label'
+    if rootdir[-1]!='/':
+        rootdir += '/'
+    if figdir[-1]!='/':
+        figdir += '/'
+    if datadir[-1]!='/':
+        datadir += '/'
+    if labeldir[-1]!='/':
+        labeldir += '/'
+    return rootdir,figdir,datadir,labeldir
 
+#function to load wsdot data file and calibrate
+def datloadcal(datadir,filename,calfile,tlim=tuple([40,80])):
+    data,t,fs = datload(datadir+filename)
+    if np.shape(data)[1]==2:
+        RVS = calibration_correction2(calfile,tlim,Lrms = 94.,Pref = 20.)
+        P = data*RVS
+    else:
+        RVS,tlim = calibration_correction(datadir+calfile,tlim)
+        P = data*RVS
+    return P,t,fs
+
+#calculate spectra for each event
+def spec_calc(elabel,P,t,fs,AW=False,Pref = 20.):
+    S = np.empty([fs+1,np.shape(elabel)[0]])
+    for ed in range(0,np.shape(elabel)[0]):
+        pltdex = [np.logical_and(t>=elabel['t1'][ed],t<=elabel['t2'][ed])]
+        W = signal.tukey(np.size(P[tuple(pltdex)]),0.25)
+        f, S[:,ed] = signal.periodogram(P[tuple(pltdex)],
+            window = W, fs=fs, nfft = 2*fs)    
+    return S,f
+
+#take average of spectra calculated with spec_calc
+def spec_avg(elabel,P,t,fs,AW=False,Pref=20.):
+    S,f = spec_calc(elabel,P,t,fs,AW=False)
+    S = np.mean(S,1)
+    if AW==True:
+        Awinterp = Aweight_broadband(f)
+        Sw = 10*np.log10(S/Pref**2) + Awinterp
+    else:
+        Sw = 10*np.log10(S/Pref**2)  
+    return Sw,f
 if __name__ == "__main__":
     Lt,Ct,Ut = third_octave()
     L,C,U = octave_band()
