@@ -110,14 +110,17 @@ def Aweight_broadband(f,weight='A'):
     f4 = 12194.0
     WA1000 = -2.00
     WC1000 = -0.062
+    f = f[1:]
     if weight=='A':
         Aw = 20.*np.log10((f4**2*f**4)/((f**2+f1**2)*np.sqrt(f**2+f2**2) \
                             *np.sqrt(f**2+f3**2)*(f**2+f4**2)))-WA1000
     elif weight=='C':
-        Aw = Aw = 20.*np.log10((f4**2*f**4)/ \
-                               ((f**2+f1**2)*np.sqrt(f**2+f4**2))) - WC10000
+        Aw = 20.*np.log10((f4**2*f**4)/ \
+                               ((f**2+f1**2)*np.sqrt(f**2+f4**2))) - WC1000
     else:
         Aw = np.zeros(np.size(f))
+        
+    Aw = np.insert(Aw,0,Aw[0])
     return Aw
 
 def Cweight_interp(f):
@@ -125,11 +128,34 @@ def Cweight_interp(f):
     Cwinterp = np.interp(f,C,Cw)
     return Cwinterp
 
+#Weighting function was not used so I have modified it to better fit my needs
+# November 28, 2018
+'''
 def weighting(Lo,F,low = 0):
     #Apply weighting function to frequencies in F
     Aw,C = Aweight()
     Lw = Lo+Aw[np.in1d(C.ravel(), F).reshape(C.shape)]
     return Lw
+'''
+def weighting(S,f,AW=False,Pref=1.,avgflag=True):
+    if avgflag==True:
+        S = np.mean(S,1)
+        if AW==True:
+            Awinterp = Aweight_broadband(f)
+            Sw = 10*np.log10(S/Pref**2) + Awinterp
+        else:
+            Sw = 10*np.log10(S/Pref**2) 
+    elif avgflag==False:
+        if AW==True:
+            print("working")
+            Awinterp = Aweight_broadband(f)
+            Awinterp = Awinterp[:, np.newaxis]
+            Sw = 10*np.log10(S/Pref**2) + Awinterp
+        else:
+            Sw = 10*np.log10(S/Pref**2)
+    else:
+        print("Choose `True` or `False` asshole")
+    return Sw
 
 def rms_calc(dat,unit='flat',Pref=20.):
     #compute rms value
@@ -180,7 +206,7 @@ def calibration_correction(calfile,Lrms = 94.,Pref = 20.,tlim = False):
         #Srms = rms_calc(cal[np.logical_and(tcal>=tlim[0],tcal<=tlim[1])])
         caldex = [np.logical_and(tcal>=tlim[0],tcal<=tlim[1])]
 
-        Srms = rms_calc(cal[tuple(caldex)])
+        Srms = rms_calc(cal[caldex])
     RVS = Prms/Srms #conversion from normalized units to muPa (so that P = S*Prms/Srms)
     return RVS,tlim
 
@@ -265,36 +291,72 @@ def fdir(rdir=None):
     return rootdir,figdir,datadir,labeldir
 
 #function to load wsdot data file and calibrate
-def datloadcal(datadir,filename,calfile,tlim=tuple([40,80])):
+def datloadcal(datadir,filename,calfile,tlim=[0,60]):
     data,t,fs = datload(datadir+filename)
-    if np.shape(data)[1]==2:
+    if data.ndim==2:
         RVS = calibration_correction2(calfile,tlim,Lrms = 94.,Pref = 20.)
         P = data*RVS
     else:
-        RVS,tlim = calibration_correction(datadir+calfile,tlim)
+        RVS,tlim = calibration_correction(datadir+calfile,tlim=tlim)
         P = data*RVS
     return P,t,fs
 
+#energy spectral denisty that includes time, T
+#calculate spectra for each event
+def spec_calc(elabel,P,t,fs,AW=False,Pref = 1.):
+    S = np.empty([2*fs+1,np.shape(elabel)[0]])
+    for ed in range(0,np.shape(elabel)[0]):
+        pltdex = [np.logical_and(t>=elabel['t1'][ed],t<=elabel['t2'][ed])]
+        W = signal.tukey(np.size(P[tuple(pltdex)]),0.25)
+        T = elabel.t2[ed]-elabel.t1[ed]
+        f, S[:,ed] = signal.periodogram(P[tuple(pltdex)],
+            window = W, fs=fs, nfft = 4*fs)
+        rho,c = 1.225,340.
+        S[:,ed] = S[:,ed]*T/(rho*c)
+    return S,f
+'''
 #calculate spectra for each event
 def spec_calc(elabel,P,t,fs,AW=False,Pref = 20.):
-    S = np.empty([fs+1,np.shape(elabel)[0]])
+    S = np.empty([2*fs+1,np.shape(elabel)[0]])
     for ed in range(0,np.shape(elabel)[0]):
         pltdex = [np.logical_and(t>=elabel['t1'][ed],t<=elabel['t2'][ed])]
         W = signal.tukey(np.size(P[tuple(pltdex)]),0.25)
         f, S[:,ed] = signal.periodogram(P[tuple(pltdex)],
-            window = W, fs=fs, nfft = 2*fs)    
+            window = W, fs=fs, nfft = 4*fs)    
     return S,f
-
+'''
 #take average of spectra calculated with spec_calc
-def spec_avg(elabel,P,t,fs,AW=False,Pref=20.):
-    S,f = spec_calc(elabel,P,t,fs,AW=False)
+def spec_avg(elabel,P,t,fs,AWset=False,Pref=1.):
+    S,f = spec_calc(elabel,P,t,fs,AW=AWset)
     S = np.mean(S,1)
-    if AW==True:
+    if AWset==True:
         Awinterp = Aweight_broadband(f)
         Sw = 10*np.log10(S/Pref**2) + Awinterp
     else:
         Sw = 10*np.log10(S/Pref**2)  
     return Sw,f
+
+'''
+def plt_set(fig,ax,Sw,f,lw='0.25',lbl=None):
+    if lbl == None:
+        ax.plot(f,Sw,linewidth=lw)
+    else:
+        ax.plot(f,Sw,linewidth=lw,label=lbl)
+    ax.set_xlim(0,1000)
+    ax.set_ylim(30,80)
+    ax.set_ylabel(r'Spectral Density (dBA re 40 $\mu $Pa$^2$s)')
+    ax.set_xlabel('Frequency (Hz)')
+'''
+def plt_set(fig,ax,Sw,f,lw='0.25',lbl=None):
+    if lbl == None:
+        ax.plot(f,Sw,linewidth=lw)
+    else:
+        ax.plot(f,Sw,linewidth=lw,label=lbl)
+    ax.set_xlim(0,1000)
+    ax.set_ylim(30,80)
+    ax.set_ylabel(r'ESD (dBA re 1 J/$m^2$/Hz)')
+    ax.set_xlabel('Frequency (Hz)')
+    
 if __name__ == "__main__":
     Lt,Ct,Ut = third_octave()
     L,C,U = octave_band()

@@ -1,0 +1,32 @@
+axes.titlesize : 8
+axes.labelsize : 8
+axes.edgecolor : 363737
+axes.facecolor : white
+axes.grid : True
+axes.spines.top : False
+axes.spines.right : False
+
+lines.linewidth : 0.5
+lines.markersize : 2
+
+xtick.labelsize : 10
+xtick.color : 363737
+ytick.color : 363737
+ytick.labelsize : 10
+
+font.size : 10
+font.family : Arial
+
+legend.numpoints : 1
+legend.fontsize : x-small
+legend.edgecolor : white
+legend.shadow : False
+legend.framealpha : 1.0
+legend.facecolor : inherit 
+legend.fancybox : True
+
+grid.color : d8dcd6
+grid.linewidth : 0.25
+grid.alpha : 1.0
+
+figure.autolayout : True
