@@ -7,7 +7,7 @@ DESCRIPTION: utility file containing functions to analyze data collected
 during the SR 520 bridge project with WASHDOT.
 """
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from scipy.fftpack import fft, ifft
 from scipy import signal
 import soundfile as sf
@@ -128,35 +128,6 @@ def Cweight_interp(f):
     Cwinterp = np.interp(f,C,Cw)
     return Cwinterp
 
-#Weighting function was not used so I have modified it to better fit my needs
-# November 28, 2018
-'''
-def weighting(Lo,F,low = 0):
-    #Apply weighting function to frequencies in F
-    Aw,C = Aweight()
-    Lw = Lo+Aw[np.in1d(C.ravel(), F).reshape(C.shape)]
-    return Lw
-'''
-def weighting(S,f,AW=False,Pref=1.,avgflag=True):
-    if avgflag==True:
-        S = np.mean(S,1)
-        if AW==True:
-            Awinterp = Aweight_broadband(f)
-            Sw = 10*np.log10(S/Pref**2) + Awinterp
-        else:
-            Sw = 10*np.log10(S/Pref**2) 
-    elif avgflag==False:
-        if AW==True:
-            print("working")
-            Awinterp = Aweight_broadband(f)
-            Awinterp = Awinterp[:, np.newaxis]
-            Sw = 10*np.log10(S/Pref**2) + Awinterp
-        else:
-            Sw = 10*np.log10(S/Pref**2)
-    else:
-        print("Choose `True` or `False` asshole")
-    return Sw
-
 def rms_calc(dat,unit='flat',Pref=20.):
     #compute rms value
     if unit=='dB':
@@ -205,8 +176,7 @@ def calibration_correction(calfile,Lrms = 94.,Pref = 20.,tlim = False):
     else:
         #Srms = rms_calc(cal[np.logical_and(tcal>=tlim[0],tcal<=tlim[1])])
         caldex = [np.logical_and(tcal>=tlim[0],tcal<=tlim[1])]
-
-        Srms = rms_calc(cal[caldex])
+        Srms = rms_calc(cal[tuple(caldex)])
     RVS = Prms/Srms #conversion from normalized units to muPa (so that P = S*Prms/Srms)
     return RVS,tlim
 
@@ -301,9 +271,38 @@ def datloadcal(datadir,filename,calfile,tlim=[0,60]):
         P = data*RVS
     return P,t,fs
 
+#Weighting function was not used so I have modified it to better fit my needs
+# November 28, 2018
+'''
+def weighting(Lo,F,low = 0):
+    #Apply weighting function to frequencies in F
+    Aw,C = Aweight()
+    Lw = Lo+Aw[np.in1d(C.ravel(), F).reshape(C.shape)]
+    return Lw
+'''
+def weighting(S,f,AW=False,Eref=1.,avgflag=True):
+    if avgflag==True:
+        S = np.mean(S,1)
+        if AW==True:
+            Awinterp = Aweight_broadband(f)
+            Sw = 10*np.log10(S/Eref) + Awinterp
+        else:
+            Sw = 10*np.log10(S/Eref) 
+    elif avgflag==False:
+        if AW==True:
+            print("working")
+            Awinterp = Aweight_broadband(f)
+            Awinterp = Awinterp[:, np.newaxis]
+            Sw = 10*np.log10(S/Eref) + Awinterp
+        else:
+            Sw = 10*np.log10(S/Eref)
+    else:
+        print("Choose `True` or `False` asshole")
+    return Sw
+
 #energy spectral denisty that includes time, T
 #calculate spectra for each event
-def spec_calc(elabel,P,t,fs,AW=False,Pref = 1.):
+def spec_calc(elabel,P,t,fs,AW=False,rho=1.225,c=340.):
     S = np.empty([2*fs+1,np.shape(elabel)[0]])
     for ed in range(0,np.shape(elabel)[0]):
         pltdex = [np.logical_and(t>=elabel['t1'][ed],t<=elabel['t2'][ed])]
@@ -311,42 +310,20 @@ def spec_calc(elabel,P,t,fs,AW=False,Pref = 1.):
         T = elabel.t2[ed]-elabel.t1[ed]
         f, S[:,ed] = signal.periodogram(P[tuple(pltdex)],
             window = W, fs=fs, nfft = 4*fs)
-        rho,c = 1.225,340.
         S[:,ed] = S[:,ed]*T/(rho*c)
     return S,f
-'''
-#calculate spectra for each event
-def spec_calc(elabel,P,t,fs,AW=False,Pref = 20.):
-    S = np.empty([2*fs+1,np.shape(elabel)[0]])
-    for ed in range(0,np.shape(elabel)[0]):
-        pltdex = [np.logical_and(t>=elabel['t1'][ed],t<=elabel['t2'][ed])]
-        W = signal.tukey(np.size(P[tuple(pltdex)]),0.25)
-        f, S[:,ed] = signal.periodogram(P[tuple(pltdex)],
-            window = W, fs=fs, nfft = 4*fs)    
-    return S,f
-'''
+
 #take average of spectra calculated with spec_calc
-def spec_avg(elabel,P,t,fs,AWset=False,Pref=1.):
+def spec_avg(elabel,P,t,fs,AWset=False,Eref=1.):
     S,f = spec_calc(elabel,P,t,fs,AW=AWset)
     S = np.mean(S,1)
     if AWset==True:
         Awinterp = Aweight_broadband(f)
-        Sw = 10*np.log10(S/Pref**2) + Awinterp
+        Sw = 10*np.log10(S/Eref) + Awinterp
     else:
-        Sw = 10*np.log10(S/Pref**2)  
+        Sw = 10*np.log10(S/Eref)  
     return Sw,f
 
-'''
-def plt_set(fig,ax,Sw,f,lw='0.25',lbl=None):
-    if lbl == None:
-        ax.plot(f,Sw,linewidth=lw)
-    else:
-        ax.plot(f,Sw,linewidth=lw,label=lbl)
-    ax.set_xlim(0,1000)
-    ax.set_ylim(30,80)
-    ax.set_ylabel(r'Spectral Density (dBA re 40 $\mu $Pa$^2$s)')
-    ax.set_xlabel('Frequency (Hz)')
-'''
 def plt_set(fig,ax,Sw,f,lw='0.25',lbl=None):
     if lbl == None:
         ax.plot(f,Sw,linewidth=lw)
@@ -356,6 +333,10 @@ def plt_set(fig,ax,Sw,f,lw='0.25',lbl=None):
     ax.set_ylim(30,80)
     ax.set_ylabel(r'ESD (dBA re 1 J/$m^2$/Hz)')
     ax.set_xlabel('Frequency (Hz)')
+    
+def Leq(P,t,Pref = 20):
+    Leq = 10.*np.log10(np.trapz(P**2/Pref**2,t)/(t[-1]-t[0]))
+    return Leq
     
 if __name__ == "__main__":
     Lt,Ct,Ut = third_octave()
