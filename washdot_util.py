@@ -324,11 +324,21 @@ def spec_avg(elabel,P,t,fs,AWset=False,Eref=1.):
         Sw = 10*np.log10(S/Eref)  
     return Sw,f
 
-def plt_set(fig,ax,Sw,f,lw='0.25',lbl=None):
+def plt_set(fig,ax,Sw,f,lw='0.25',lbl=None,lcol=None):
     if lbl == None:
         ax.plot(f,Sw,linewidth=lw)
+        if lcol == None:
+            ax.plot(f,Sw,linewidth=lw)
+        else:
+            ax.plot(f,Sw,linewidth=lw,color=lcol)
     else:
-        ax.plot(f,Sw,linewidth=lw,label=lbl)
+        if lcol == None:
+            ax.plot(f,Sw,linewidth=lw,label=lbl)
+        else:
+            ax.plot(f,Sw,linewidth=lw,label=lbl,color=lcol)
+        
+
+        
     ax.set_xlim(0,1000)
     ax.set_ylim(30,80)
     ax.set_ylabel(r'ESD (dBA re 1 J/$m^2$/Hz)')
