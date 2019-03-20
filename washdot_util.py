@@ -308,9 +308,10 @@ def spec_calc(elabel,P,t,fs,AW=False,rho=1.225,c=340.):
         pltdex = [np.logical_and(t>=elabel['t1'][ed],t<=elabel['t2'][ed])]
         W = signal.tukey(np.size(P[tuple(pltdex)]),0.25)
         T = elabel.t2[ed]-elabel.t1[ed]
+        #sigma = rms_calc(P[tuple(pltdex)])**2. #conserve energy when zero padding
         f, S[:,ed] = signal.periodogram(P[tuple(pltdex)],
             window = W, fs=fs, nfft = 4*fs)
-        S[:,ed] = S[:,ed]*T/(rho*c)
+        S[:,ed] = S[:,ed]*T/(rho*c)#*sigma/(np.sum(S[:,ed]))
     return S,f
 
 #take average of spectra calculated with spec_calc
@@ -347,6 +348,30 @@ def plt_set(fig,ax,Sw,f,lw='0.25',lbl=None,lcol=None):
 def Leq(P,t,Pref = 20):
     Leq = 10.*np.log10(np.trapz(P**2/Pref**2,t)/(t[-1]-t[0]))
     return Leq
+
+#energy detector for automated labelling of data files
+def energy_detector(P,fs,FILENAME,nlen = 2048,thresh = 9.0,tbuff= 0.0,tlim = [0.15,0.65],flim=[500,800]):
+    f, T, Sxx = signal.spectrogram(P, fs,nperseg=nlen,noverlap=nlen/2)
+    #check what energy of each event is
+    E = np.sum(Sxx[np.logical_and(f>flim[0],f<flim[1]),:],axis=0)
+
+    Ethresh = np.log10(E)>thresh
+    
+    xx = np.zeros(2)
+    Tlist = []
+    f = open('LABEL_'+FILENAME[0:-4]+'.txt',"w")
+    for dex in range(1,np.size(Ethresh)-1):
+        if Ethresh[dex]==True:
+            if Ethresh[dex-1]==False:
+                xx[0] = T[dex]-tbuff
+            elif np.logical_and(Ethresh[dex+1]==False,Ethresh[dex-1]==True):
+                xx[1] = T[dex]+tbuff
+                if np.logical_and(xx[1]-xx[0]<tlim[1],xx[1]-xx[0]>tlim[0]):
+                    Tlist.append(np.copy(xx))
+                    f.write("%.6f\t%.6f\t%s\n" % (xx[0],xx[1],'vehicle'))
+    f.close()            
+    Tlist = np.squeeze(Tlist)
+    return Tlist
     
 if __name__ == "__main__":
     Lt,Ct,Ut = third_octave()
